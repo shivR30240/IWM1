@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Badge, getStatusVariant, getPriorityVariant } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Search, CheckCircle, Circle, AlertTriangle, MapPin, Building2, Calendar, Clock } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface TicketResult {
   id: string;
@@ -34,12 +34,20 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function CheckStatusPage() {
   const [ticketId, setTicketId] = useState("");
-  const [captchaA] = useState(Math.floor(Math.random() * 9) + 1);
-  const [captchaB] = useState(Math.floor(Math.random() * 9) + 1);
+  const [captchaA, setCaptchaA] = useState(0);
+  const [captchaB, setCaptchaB] = useState(0);
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [result, setResult] = useState<TicketResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCaptchaA(Math.floor(Math.random() * 9) + 1);
+      setCaptchaB(Math.floor(Math.random() * 9) + 1);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();

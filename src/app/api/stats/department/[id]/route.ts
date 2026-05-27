@@ -1,11 +1,14 @@
 import { NextRequest } from "next/server";
-import { getTicketsArray, getDepartmentsArray } from "@/lib/mock-data/store";
+import { connectToDatabase } from "@/lib/db";
+import { Ticket } from "@/models/Ticket";
+import { Department } from "@/models/Department";
 import { successResponse, errorResponse } from "@/lib/api-helpers/response";
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const tickets = getTicketsArray().filter(t => t.departmentId === id);
-  const dept = getDepartmentsArray().find(d => d.id === id);
+  await connectToDatabase();
+  const tickets = await Ticket.find({ departmentId: id }).lean();
+  const dept = await Department.findOne({ id }).lean();
 
   if (!dept) return errorResponse("NOT_FOUND", "Department not found", 404);
 

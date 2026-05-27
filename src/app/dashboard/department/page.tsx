@@ -26,10 +26,6 @@ export default function DepartmentDashboardPage() {
   const [priorityFilter, setPriorityFilter] = useState("");
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    fetchTickets();
-  }, [user, page, statusFilter, priorityFilter]);
-
   const fetchTickets = async () => {
     setLoading(true);
     const params = new URLSearchParams();
@@ -48,6 +44,13 @@ export default function DepartmentDashboardPage() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchTickets();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [user, page, statusFilter, priorityFilter]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

@@ -11,7 +11,7 @@ export async function processIncomingMessage(message: {
   type: string;
   timestamp: string;
 }): Promise<string | null> {
-  const { from, message: text, type } = message;
+  const { message: text, type } = message;
 
   // Only process text messages for now
   if (type !== 'text') {
@@ -24,7 +24,7 @@ export async function processIncomingMessage(message: {
   if (lowerText.startsWith('status')) {
     const ticketId = lowerText.split(' ')[1];
     if (ticketId) {
-      return handleStatusCheck(ticketId.toUpperCase());
+      return await handleStatusCheck(ticketId.toUpperCase());
     }
     return 'Please provide a ticket ID.\nExample: STATUS IVC-2026-12345';
   }
@@ -56,8 +56,8 @@ export async function processIncomingMessage(message: {
 /**
  * Handle status check command
  */
-function handleStatusCheck(ticketId: string): string {
-  const ticket = getTicketById(ticketId);
+async function handleStatusCheck(ticketId: string): Promise<string> {
+  const ticket = await getTicketById(ticketId);
 
   if (!ticket) {
     return `❌ Ticket ${ticketId} not found.\n\nPlease check the ticket ID and try again.`;
@@ -122,46 +122,3 @@ Your complaint will be registered and you'll receive a ticket ID.
 Reply HELP for more options.`;
 }
 
-/**
- * Send automated WhatsApp notification
- */
-export async function sendWhatsAppNotification(
-  to: string,
-  type: 'ticket_creation' | 'status_update' | 'resolution' | 'sla_breach' | 'feedback' | 'escalation',
-  params: any
-): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  try {
-    let message: string;
-
-    switch (type) {
-      case 'ticket_creation':
-        message = templates.ticketCreation(params);
-        break;
-      case 'status_update':
-        message = templates.statusUpdate(params);
-        break;
-      case 'resolution':
-        message = templates.resolution(params);
-        break;
-      case 'sla_breach':
-        message = templates.slaBreach(params);
-        break;
-      case 'feedback':
-        message = templates.feedbackRequest(params);
-        break;
-      case 'escalation':
-        message = templates.escalation(params);
-        break;
-      default:
-        throw new Error('Unknown notification type');
-    }
-
-    return await whatsAppClient.sendTextMessage(to, message);
-  } catch (error) {
-    console.error('❌ Error sending WhatsApp notification:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
-}

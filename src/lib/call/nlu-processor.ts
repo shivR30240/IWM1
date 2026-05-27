@@ -103,6 +103,21 @@ const PRIORITY_KEYWORDS: Record<TicketPriority, string[]> = {
 export async function processComplaint(transcript: string): Promise<ProcessedComplaint> {
   console.log('🧠 Processing complaint with NLU...');
 
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey && apiKey !== 'mock_api_key') {
+    try {
+      console.log('📡 Calling Google Gemini API for transcript analysis...');
+      const geminiResult = await processWithGemini(transcript, apiKey);
+      console.log('✅ NLU processing complete via Gemini:', geminiResult);
+      return geminiResult;
+    } catch (geminiError) {
+      console.error('❌ Gemini NLU processing failed. Falling back to rule-based processing:', geminiError);
+    }
+  } else {
+    console.log('ℹ️ GEMINI_API_KEY not configured or mock. Using rule-based local processing.');
+  }
+
+  // Local Rule-Based Processing (Fallback)
   const lowerTranscript = transcript.toLowerCase();
 
   // Extract category
@@ -124,11 +139,113 @@ export async function processComplaint(transcript: string): Promise<ProcessedCom
     location,
     summary,
     summaryHi,
-    confidence: 0.85,
+    confidence: 0.70, // Lower confidence for rule-based heuristics
   };
 
-  console.log('✅ NLU processing complete:', result);
+  console.log('✅ NLU processing complete via Local Fallback:', result);
   return result;
+}
+
+/**
+ * Advanced NLU processing using Gemini 2.5 Flash
+ */
+async function processWithGemini(transcript: string, apiKey: string): Promise<ProcessedComplaint> {
+  const prompt = `
+You are an expert natural language understanding processor for the Indore Voice Connect helpline in Indore, Madhya Pradesh, India.
+Your task is to analyze the following civic complaint transcript and extract structured information.
+
+The complaint might be in English, Hindi, or a mix of both (Hinglish).
+
+Transcript: "${transcript}"
+
+Extract the information strictly in the following JSON format. Return ONLY the JSON object, with no backticks, no markdown fencing, and no additional text.
+
+{
+  "category": "water_supply" | "drainage" | "roads" | "electricity" | "sanitation" | "garbage_collection" | "street_lights" | "parks" | "building_permits" | "other",
+  "priority": "low" | "medium" | "high" | "critical",
+  "location": {
+    "wardNumber": number | null,
+    "wardName": string | null,
+    "area": string | null,
+    "fullAddress": string
+  },
+  "summary": string,
+  "summaryHi": string,
+  "confidence": number
+}
+
+Rules for extraction:
+1. "category": Match the complaint content to one of the 10 allowed categories.
+2. "priority": Determine based on severity:
+   - "critical": Live high-voltage wires, open manholes on main roads, severe water contamination, safety hazards.
+   - "high": Clogged main sewage lines, no water supply for multiple days, entire streetlights out.
+   - "medium": Potholes, minor drainage, single street light not working, routine garbage pile.
+   - "low": Garden maintenance, general suggestion, minor building permit inquiries.
+3. "location":
+   - "wardNumber": Try to identify or infer the ward number (Indore has 85 wards. Standard mappings: Vijay Nagar is Ward 15, Rajwada is Ward 1, Sapna Sangeeta is Ward 23, Bhawarkuan is Ward 12, Palace Square is Ward 8, Palasia is Ward 18, New Market is Ward 25, Saket is Ward 30, Sudama Nagar is Ward 42, Niranjanpur is Ward 35). If not mentioned, set to null.
+   - "wardName": Name of the Indore ward (e.g. "Vijay Nagar", "Rajwada").
+   - "area": Specific colony or neighborhood mentioned (e.g., "Scheme 54", "LIG Colony", "Ranjeet Hanuman").
+   - "fullAddress": Synthesize a full description of the address context.
+4. "summary": Provide a highly concise, professional 1-sentence summary of the specific issue in English.
+5. "summaryHi": Provide a highly concise, professional 1-sentence summary of the specific issue in Hindi (Devanagari script).
+6. "confidence": A decimal between 0.0 and 1.0.
+`;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{ text: prompt }]
+      }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.1,
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini API HTTP Error ${response.status}: ${await response.text()}`);
+  }
+
+  const data = await response.json();
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawText) {
+    throw new Error('Invalid or empty response from Gemini API');
+  }
+
+  const result = JSON.parse(rawText.trim());
+  
+  // Ensure categories are valid and correct potential formatting issues
+  const validCategories = [
+    'water_supply', 'drainage', 'roads', 'electricity', 
+    'sanitation', 'garbage_collection', 'street_lights', 
+    'parks', 'building_permits', 'other'
+  ];
+  if (!validCategories.includes(result.category)) {
+    result.category = 'other';
+  }
+
+  const validPriorities = ['low', 'medium', 'high', 'critical'];
+  if (!validPriorities.includes(result.priority)) {
+    result.priority = 'medium';
+  }
+
+  // Set default fallback values if missing
+  result.location = result.location || {};
+  result.location.wardNumber = typeof result.location.wardNumber === 'number' ? result.location.wardNumber : null;
+  result.location.wardName = result.location.wardName || (result.location.wardNumber ? `Ward ${result.location.wardNumber}` : 'Unknown');
+  result.location.area = result.location.area || null;
+  result.location.fullAddress = result.location.fullAddress || transcript.substring(0, 100);
+  result.summary = result.summary || 'Civic complaint registered';
+  result.summaryHi = result.summaryHi || 'नागरिक शिकायत दर्ज की गई';
+  result.confidence = typeof result.confidence === 'number' ? result.confidence : 0.8;
+
+  return result as ProcessedComplaint;
 }
 
 /**

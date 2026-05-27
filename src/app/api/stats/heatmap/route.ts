@@ -1,9 +1,11 @@
-import { getTicketsArray } from "@/lib/mock-data/store";
+import { connectToDatabase } from "@/lib/db";
+import { Ticket } from "@/models/Ticket";
 import { successResponse } from "@/lib/api-helpers/response";
 import { INDORE_LOCATIONS } from "@/lib/mock-data/constants/indore-locations";
 
 export async function GET() {
-  const tickets = getTicketsArray();
+  await connectToDatabase();
+  const tickets = await Ticket.find({}).lean();
   const wardMap: Record<number, { count: number; categories: Record<string, number> }> = {};
 
   for (const t of tickets) {

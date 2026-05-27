@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User, UserRole } from "@/types";
 import { decodeMockToken } from "@/lib/api-helpers/auth-guard";
 
-interface AuthUser extends Omit<User, "password"> {}
+type AuthUser = Omit<User, "password">;
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -37,14 +37,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (stored && storedUser) {
       const decoded = decodeMockToken(stored);
       if (decoded) {
-        setToken(stored);
-        setUser(JSON.parse(storedUser));
+        setTimeout(() => {
+          setToken(stored);
+          setUser(JSON.parse(storedUser));
+          setIsLoading(false);
+        }, 0);
+        return;
       } else {
         localStorage.removeItem("auth-token");
         localStorage.removeItem("auth-user");
       }
     }
-    setIsLoading(false);
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 0);
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {

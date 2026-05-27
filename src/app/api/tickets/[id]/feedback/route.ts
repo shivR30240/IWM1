@@ -1,17 +1,18 @@
 import { NextRequest } from "next/server";
-import { getStore } from "@/lib/mock-data/store";
+import { connectToDatabase } from "@/lib/db";
+import { Ticket } from "@/models/Ticket";
 import { successResponse, errorResponse } from "@/lib/api-helpers/response";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const store = getStore();
-  const ticket = store.tickets.get(id);
+  await connectToDatabase();
+  const ticketDoc = await Ticket.findOne({ id });
 
-  if (!ticket) return errorResponse("NOT_FOUND", "Ticket not found", 404);
-  if (ticket.status !== "resolved" && ticket.status !== "closed") {
+  if (!ticketDoc) return errorResponse("NOT_FOUND", "Ticket not found", 404);
+  if (ticketDoc.status !== "resolved" && ticketDoc.status !== "closed") {
     return errorResponse("INVALID_STATE", "Feedback can only be submitted for resolved tickets", 400);
   }
-  if (ticket.feedback) {
+  if (ticketDoc.feedback) {
     return errorResponse("ALREADY_EXISTS", "Feedback already submitted for this ticket", 409);
   }
 
@@ -24,9 +25,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     submittedAt: new Date().toISOString(),
   };
 
-  ticket.feedback = feedback;
-  store.feedback.set(id, feedback);
-  store.tickets.set(id, ticket);
+  ticketDoc.feedback = feedback;
+  await ticketDoc.save();
 
   return successResponse(feedback, 201);
 }

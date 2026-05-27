@@ -13,10 +13,6 @@ export default function CallLogsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('');
 
-  useEffect(() => {
-    fetchCallLogs();
-  }, [page, statusFilter]);
-
   const fetchCallLogs = async () => {
     setLoading(true);
     try {
@@ -42,6 +38,13 @@ export default function CallLogsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchCallLogs();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [page, statusFilter]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

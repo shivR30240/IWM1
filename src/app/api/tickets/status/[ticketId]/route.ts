@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
-import { getStore } from "@/lib/mock-data/store";
+import { connectToDatabase } from "@/lib/db";
+import { Ticket } from "@/models/Ticket";
 import { successResponse, errorResponse } from "@/lib/api-helpers/response";
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ ticketId: string }> }) {
   const { ticketId } = await params;
-  const store = getStore();
-  const ticket = store.tickets.get(ticketId);
+  await connectToDatabase();
+  const ticket = await Ticket.findOne({ id: ticketId }).lean();
 
   if (!ticket) {
     return errorResponse("NOT_FOUND", "No ticket found with this ID", 404);
@@ -22,7 +23,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ ticket
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
     resolvedAt: ticket.resolvedAt,
-    statusHistory: ticket.statusHistory.map(h => ({
+    statusHistory: (ticket.statusHistory || []).map((h: { toStatus: string; changedAt: string; note: string }) => ({
       toStatus: h.toStatus,
       changedAt: h.changedAt,
       note: h.note,

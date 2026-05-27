@@ -1,16 +1,21 @@
 import { NextRequest } from "next/server";
-import { getUsersArray, getStore } from "@/lib/mock-data/store";
+import { connectToDatabase } from "@/lib/db";
+import { User } from "@/models/User";
 import { successResponse } from "@/lib/api-helpers/response";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  let users = getUsersArray();
-
+  await connectToDatabase();
+  
+  const query: { role?: string; departmentId?: string } = {};
+  
   const role = searchParams.get("role");
-  if (role) users = users.filter(u => u.role === role);
+  if (role) query.role = role;
 
   const departmentId = searchParams.get("departmentId");
-  if (departmentId) users = users.filter(u => u.departmentId === departmentId);
+  if (departmentId) query.departmentId = departmentId;
+
+  const users = await User.find(query).lean();
 
   // Strip passwords from response
   const sanitized = users.map(({ password: _, ...u }) => u);
@@ -19,8 +24,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const store = getStore();
-  const id = `USR-${String(store.users.size + 1).padStart(3, "0")}`;
+  await connectToDatabase();
+  
+  const userCount = await User.countDocuments();
+  const id = `USR-${String(userCount + 1).padStart(3, "0")}`;
 
   const newUser = {
     id,
@@ -37,7 +44,9 @@ export async function POST(request: NextRequest) {
     createdAt: new Date().toISOString(),
   };
 
-  store.users.set(id, newUser);
-  const { password: _, ...sanitized } = newUser;
+  const createdUser = await User.create(newUser);
+  const userObj = createdUser.toObject();
+  const { password: _, ...sanitized } = userObj;
+  
   return successResponse(sanitized, 201);
 }

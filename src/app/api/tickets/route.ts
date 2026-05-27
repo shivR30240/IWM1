@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
-import { getStore, getTicketsArray } from "@/lib/mock-data/store";
+import { connectToDatabase } from "@/lib/db";
+import { Ticket as TicketModel } from "@/models/Ticket";
 import { applyTicketFilters } from "@/lib/api-helpers/filters";
-import { successResponse, errorResponse, paginatedResponse } from "@/lib/api-helpers/response";
-import type { TicketFilterParams } from "@/types";
+import { successResponse, paginatedResponse } from "@/lib/api-helpers/response";
+import type { Ticket, TicketFilterParams } from "@/types";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -24,8 +25,9 @@ export async function GET(request: NextRequest) {
     pageSize: searchParams.get("pageSize") || "20",
   };
 
-  const allTickets = getTicketsArray();
-  const filtered = applyTicketFilters(allTickets, params);
+  await connectToDatabase();
+  const allTickets = await TicketModel.find({}).lean();
+  const filtered = applyTicketFilters(allTickets as unknown as Ticket[], params);
   const page = Math.max(1, parseInt(params.page || "1"));
   const pageSize = Math.min(100, Math.max(1, parseInt(params.pageSize || "20")));
 
@@ -34,9 +36,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const store = getStore();
 
-  const ticketCount = store.tickets.size;
+  await connectToDatabase();
+  const ticketCount = await TicketModel.countDocuments();
   const id = `IVC-2024-${String(ticketCount + 1).padStart(5, "0")}`;
 
   const newTicket = {
@@ -71,6 +73,6 @@ export async function POST(request: NextRequest) {
     feedback: null,
   };
 
-  store.tickets.set(id, newTicket);
-  return successResponse(newTicket, 201);
+  const createdTicket = await TicketModel.create(newTicket);
+  return successResponse(createdTicket, 201);
 }

@@ -1,8 +1,10 @@
-import { getTicketsArray } from "@/lib/mock-data/store";
+import { connectToDatabase } from "@/lib/db";
+import { Ticket } from "@/models/Ticket";
 import { successResponse } from "@/lib/api-helpers/response";
 
 export async function GET() {
-  const tickets = getTicketsArray();
+  await connectToDatabase();
+  const tickets = await Ticket.find({}).lean();
 
   const resolvedOrClosed = tickets.filter(t => t.status === "resolved" || t.status === "closed");
   const avgResolutionHours = resolvedOrClosed.length > 0

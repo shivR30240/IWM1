@@ -1,12 +1,15 @@
 import { NextRequest } from "next/server";
-import { getTicketsArray } from "@/lib/mock-data/store";
+import { connectToDatabase } from "@/lib/db";
+import { Ticket } from "@/models/Ticket";
 import { successResponse } from "@/lib/api-helpers/response";
 import { format, subDays } from "date-fns";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const days = parseInt(searchParams.get("days") || "30");
-  const tickets = getTicketsArray();
+  
+  await connectToDatabase();
+  const tickets = await Ticket.find({}).lean();
 
   const now = new Date();
   const points = [];

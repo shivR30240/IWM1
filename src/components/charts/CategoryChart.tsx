@@ -35,7 +35,7 @@ export default function CategoryChart({ data }: CategoryChartProps) {
             color: '#fafafa',
             fontSize: '12px',
           }}
-          formatter={(value: number, name: string) => [value, name]}
+          formatter={(value, name) => [value, name]}
         />
         <Legend 
           formatter={(value) => <span style={{ color: '#a1a1aa', fontSize: '12px' }}>{value}</span>}

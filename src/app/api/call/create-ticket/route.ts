@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const ticket = getTicketById(ticketId);
+    const ticket = await getTicketById(ticketId);
 
     if (!ticket) {
       return NextResponse.json(

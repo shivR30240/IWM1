@@ -9,10 +9,6 @@ export default function CallStatsPage() {
   const [stats, setStats] = useState<CallStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchCallStats();
-  }, []);
-
   const fetchCallStats = async () => {
     try {
       const response = await fetch('/api/call/stats');
@@ -27,6 +23,13 @@ export default function CallStatsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchCallStats();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (loading) {
     return <div className="flex items-center justify-center p-12">Loading call statistics...</div>;

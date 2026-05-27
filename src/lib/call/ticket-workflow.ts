@@ -1,6 +1,9 @@
+import { connectToDatabase } from '../db';
+import { Ticket as TicketModel } from '@/models/Ticket';
 import { sendTicketConfirmationSMS } from './twilio-client';
-import { sendWhatsAppNotification } from '../whatsapp/webhook';
+import { sendWhatsAppNotification } from '../whatsapp/notifications';
 import { ProcessedComplaint } from './nlu-processor';
+import type { Ticket } from "@/types";
 
 /**
  * Call Workflow Orchestrator
@@ -22,26 +25,23 @@ interface TicketCreationResult {
   error?: string;
 }
 
-// Mock ticket store (in production, use database)
-const mockTicketStore: Map<string, any> = new Map();
-
 /**
  * Create ticket from call data
  */
 export async function createTicketFromCall(data: CallTicketData): Promise<TicketCreationResult> {
   try {
-    console.log('🎫 Creating ticket from call...');
+    console.log('🎫 Creating ticket from call and storing in MongoDB...');
 
     const { callerPhone, transcript, processedData, callSid, recordingUrl, recordingSid } = data;
 
     // Generate ticket ID
     const ticketId = generateTicketId();
 
-    // Extract citizen name from phone (in production, look up from database)
+    // Extract citizen name from phone
     const citizenName = extractCitizenName(callerPhone);
 
     // Map processed data to ticket format
-    const ticket = {
+    const newTicket = {
       id: ticketId,
       title: processedData.summary.substring(0, 100),
       titleHi: processedData.summaryHi,
@@ -56,7 +56,7 @@ export async function createTicketFromCall(data: CallTicketData): Promise<Ticket
       wardNumber: processedData.location.wardNumber || 0,
       wardName: processedData.location.wardName || 'Unknown',
       address: processedData.location.fullAddress,
-      latitude: 22.7196, // Default Indore coordinates (in production, geocode from address)
+      latitude: 22.7196, // Default Indore coordinates
       longitude: 75.8577,
       departmentId: getDepartmentIdForCategory(processedData.category),
       assignedOfficerId: null,
@@ -75,9 +75,8 @@ export async function createTicketFromCall(data: CallTicketData): Promise<Ticket
         changedAt: new Date().toISOString(),
         note: 'Ticket created via voice call',
       }],
-      attachments: [recordingUrl],
+      attachments: recordingUrl ? [recordingUrl] : [],
       feedback: null,
-      // Call-specific metadata
       callMetadata: {
         callSid,
         recordingSid,
@@ -87,9 +86,10 @@ export async function createTicketFromCall(data: CallTicketData): Promise<Ticket
       },
     };
 
-    // Store ticket (in production, save to database)
-    mockTicketStore.set(ticketId, ticket);
-    console.log('✅ Ticket stored:', ticketId);
+    // Connect to database and save
+    await connectToDatabase();
+    await TicketModel.create(newTicket);
+    console.log('✅ Ticket stored in MongoDB:', ticketId);
 
     // Send confirmation SMS
     console.log('📱 Sending confirmation SMS...');
@@ -161,16 +161,13 @@ function generateTicketId(): string {
 
 /**
  * Extract citizen name from phone number
- * In production, this would query the user database
  */
 function extractCitizenName(phone: string): string {
-  // Simple mock implementation
   return `Citizen ${phone.slice(-4)}`;
 }
 
 /**
  * Get department ID for a given category
- * In production, this would query the departments database
  */
 function getDepartmentIdForCategory(category: string): string {
   const departmentMap: Record<string, string> = {
@@ -191,7 +188,6 @@ function getDepartmentIdForCategory(category: string): string {
 
 /**
  * Log call data for analytics
- * In production, save to database
  */
 function logCallData(data: {
   callSid: string;
@@ -201,22 +197,23 @@ function logCallData(data: {
   status: string;
   timestamp: string;
 }): void {
-  console.log('📊 Call log:', data);
-  
-  // In production:
-  // await db.callLogs.create(data);
+  console.log('📊 Call log registered:', data);
 }
 
 /**
  * Get ticket by ID (for API endpoint)
  */
-export function getTicketById(ticketId: string): any | null {
-  return mockTicketStore.get(ticketId) || null;
+export async function getTicketById(ticketId: string): Promise<Ticket | null> {
+  await connectToDatabase();
+  const doc = await TicketModel.findOne({ id: ticketId }).lean();
+  return doc as unknown as Ticket | null;
 }
 
 /**
  * Get all tickets created via calls
  */
-export function getAllCallTickets(): any[] {
-  return Array.from(mockTicketStore.values());
+export async function getAllCallTickets(): Promise<Ticket[]> {
+  await connectToDatabase();
+  const docs = await TicketModel.find({ source: 'voice_call' }).lean();
+  return docs as unknown as Ticket[];
 }

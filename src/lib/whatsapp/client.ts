@@ -1,5 +1,32 @@
 import axios from 'axios';
 
+interface WhatsAppApiError {
+  response?: {
+    data?: {
+      error?: {
+        message?: string;
+      };
+    };
+  };
+  message?: string;
+}
+
+interface WebhookPayload {
+  entry?: Array<{
+    changes?: Array<{
+      value?: {
+        messages?: Array<{
+          from: string;
+          text?: { body: string };
+          image?: { caption: string };
+          type: string;
+          timestamp: string;
+        }>;
+      };
+    }>;
+  }>;
+}
+
 const WHATSAPP_API_URL = `https://graph.facebook.com/${process.env.WHATSAPP_API_VERSION || 'v17.0'}`;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -75,11 +102,12 @@ class WhatsAppClient {
         success: true,
         messageId: response.data.messages[0].id
       };
-    } catch (error: any) {
-      console.error('❌ Failed to send WhatsApp message:', error.response?.data || error.message);
+    } catch (error) {
+      const err = error as WhatsAppApiError;
+      console.error('❌ Failed to send WhatsApp message:', err.response?.data || err.message);
       return {
         success: false,
-        error: error.response?.data?.error?.message || error.message
+        error: err.response?.data?.error?.message || err.message
       };
     }
   }
@@ -121,11 +149,12 @@ class WhatsAppClient {
         success: true,
         messageId: response.data.messages[0].id
       };
-    } catch (error: any) {
-      console.error('❌ Failed to send WhatsApp image:', error.response?.data || error.message);
+    } catch (error) {
+      const err = error as WhatsAppApiError;
+      console.error('❌ Failed to send WhatsApp image:', err.response?.data || err.message);
       return {
         success: false,
-        error: error.response?.data?.error?.message || error.message
+        error: err.response?.data?.error?.message || err.message
       };
     }
   }
@@ -183,11 +212,12 @@ class WhatsAppClient {
         success: true,
         messageId: response.data.messages[0].id
       };
-    } catch (error: any) {
-      console.error('❌ Failed to send WhatsApp buttons:', error.response?.data || error.message);
+    } catch (error) {
+      const err = error as WhatsAppApiError;
+      console.error('❌ Failed to send WhatsApp buttons:', err.response?.data || err.message);
       return {
         success: false,
-        error: error.response?.data?.error?.message || error.message
+        error: err.response?.data?.error?.message || err.message
       };
     }
   }
@@ -233,11 +263,12 @@ class WhatsAppClient {
         success: true,
         messageId: response.data.messages[0].id
       };
-    } catch (error: any) {
-      console.error('❌ Failed to send WhatsApp location:', error.response?.data || error.message);
+    } catch (error) {
+      const err = error as WhatsAppApiError;
+      console.error('❌ Failed to send WhatsApp location:', err.response?.data || err.message);
       return {
         success: false,
-        error: error.response?.data?.error?.message || error.message
+        error: err.response?.data?.error?.message || err.message
       };
     }
   }
@@ -264,14 +295,15 @@ class WhatsAppClient {
   /**
    * Process incoming webhook message
    */
-  processWebhookMessage(data: any): {
+  processWebhookMessage(data: unknown): {
     from: string;
     message: string;
     type: string;
     timestamp: string;
   } | null {
     try {
-      const entry = data.entry?.[0];
+      const payload = data as WebhookPayload;
+      const entry = payload?.entry?.[0];
       const change = entry?.changes?.[0];
       const message = change?.value?.messages?.[0];
 

@@ -5,14 +5,14 @@ import { Footer } from "@/components/layout/Footer";
 import Link from "next/link";
 import { Phone, Mic, Ticket, Search, ArrowRight, CheckCircle, Users, Clock, Building2, MessageCircle, Star, Shield, Zap, Globe } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 
-const fadeInUp = {
+const fadeInUp: Variants = {
   hidden: { opacity: 0, y: 40 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }
 };
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,

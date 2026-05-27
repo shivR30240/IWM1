@@ -1,9 +1,12 @@
-import { getDepartmentsArray, getTicketsArray } from "@/lib/mock-data/store";
+import { connectToDatabase } from "@/lib/db";
+import { Department } from "@/models/Department";
+import { Ticket } from "@/models/Ticket";
 import { successResponse } from "@/lib/api-helpers/response";
 
 export async function GET() {
-  const departments = getDepartmentsArray();
-  const tickets = getTicketsArray();
+  await connectToDatabase();
+  const departments = await Department.find({}).lean();
+  const tickets = await Ticket.find({}).lean();
 
   const enriched = departments.map(dept => {
     const deptTickets = tickets.filter(t => t.departmentId === dept.id);

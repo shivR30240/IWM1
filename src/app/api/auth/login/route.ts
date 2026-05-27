@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { getStore } from "@/lib/mock-data/store";
+import { connectToDatabase } from "@/lib/db";
+import { User } from "@/models/User";
 import { createMockToken } from "@/lib/api-helpers/auth-guard";
 import { successResponse, errorResponse } from "@/lib/api-helpers/response";
 
@@ -11,9 +12,8 @@ export async function POST(request: NextRequest) {
     return errorResponse("INVALID_INPUT", "Email and password are required", 400);
   }
 
-  const store = getStore();
-  const users = Array.from(store.users.values());
-  const user = users.find(u => u.email === email && u.password === password);
+  await connectToDatabase();
+  const user = await User.findOne({ email, password }).lean();
 
   if (!user) {
     return errorResponse("AUTH_FAILED", "Invalid email or password", 401);
